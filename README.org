@@ -1,0 +1,75 @@
+#+TITLE:Network Distances
+#+AUTHOR: David James
+#+DATE: 2020 Jan 23
+
+This project calculates the network traveling distance between a source and destination point on a map.
+It uses [[http://project-osrm.org/][OSRM]] software to generate the map and perform the calculations inside a Docker container.
+
+Project was created by [[https://github.com/dj-2805/][David James]] for the Institute of Transportation Studies(ITS).
+
+* Design
+  1. Program was implemented with Python 3.7 alongside Docker and the OSRM
+  2. It maintains the following dependencies
+        | Packages                   |
+        |----------------------------|
+        | pandas                     |
+        | numpy                      |
+        | requests                   |
+        | multiprocessing (included) |
+  3. The program is meant to run with the Docker container already running before the Python script executes
+  4. The driving function is described as such:
+     #+BEGIN_SRC python
+       '''
+       function mp_networkDriver
+       A function designed to work with multiprocessing
+       where it'll run the previous designed functions
+       NOTE: This will crash if the docker OSRM isn't running beforehand
+       @param:
+                    path - str, path to CSV file that will be prococcsed
+           startGeoIDCol - str, name of column that has the starting GEOIDs
+             endGeoIDCol - str, name of column that has the ending GEOIDs
+       @return: NONE
+       '''
+       def mp_networkDriver(path,startGeoIDCol,endGeoIDCol):
+     #+END_SRC
+     - NOTE: The GEOIDs are meant to be FIPS Codes
+     - This description is the same described in the source file
+**  Files
+   1. networkDistance.py
+      1. This file calculates the source and destination pairs of data from a csv and outputs a csv of their distance in meters.
+      2. NOTE: the source and destination pairs should be in a csv and given in FIPS code values
+   2. results/commutes20191121-0938-ForkPoolWorker-20.EXAMPLE.csv
+      1. This is an example output from the networkDistance.py. It follows a year,month,day format followed by the timestamp and the Worker ID number.
+      2. NOTE: the output from networkDistance will output four files. These processes are separated to ensure RAM doesn't crash when running a larger data set. Process may be updated in the future.
+* Executing
+  1. Docker
+     #+BEGIN_SRC bash
+       # This command is to make sure that docker has the right priviledges to run
+       sudo usermod -a -G docker $USER $ groups
+     #+END_SRC
+     I mainly note this if someone is newly installing Docker. The installation instructions covered everything else, but this final command is needed someontimes depending on the environment you're running in. Once this is executed and Docker is running, then you don't need to run this command again.
+  2. OSRM Server
+     #+BEGIN_SRC bash
+       # These first commands are needed when first running OSRM on your machine
+       # commands take about 5-10 mins to execute
+       # these only need to be run once per machine, unless you need a different type of map
+       wget http://download.geofabrik.de/north-america/us/california-latest.osm.pbf
+       docker run -t -v "${PWD}:/data" osrm/osrm-backend osrm-extract -p /opt/car.lua /data/california-latest.osm.pbf
+
+       # These commands are for setting up the OSRM server on your machine
+       # command take about 5-10 mins to execute
+       # these commands need to be run every time you want to boot up the server
+       docker run -t -v "${PWD}:/data" osrm/osrm-backend osrm-partition /data/california-latest.osrm
+       docker run -t -v "${PWD}:/data" osrm/osrm-backend osrm-customize /data/california-latest.osrm
+       docker run -t -i -p 5000:5000 -v "${PWD}:/data" osrm/osrm-backend osrm-routed --algorithm mld /data/california-latest.osrm
+       # At this point the server is running and you can run the python script now
+
+       # This command is meant for calling the server
+       # NOTE: it is already implemented in python script, so using this is uncessary
+       #       unless you are just trying to make your own specific call
+       curl "http://127.0.0.1:5000/route/v1/driving/slon,slat;dlon,dlat?steps=true"
+       # @param: source - {slon, slat}
+       # @param: destination - {dlon,dlat}
+     #+END_SRC
+  3. Bash commands still need to be implemented for python script to execute
+     - Easiest way to run currently is in a Jupyter Notebook
