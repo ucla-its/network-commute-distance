@@ -1,9 +1,9 @@
-#+TITLE:Network Distances
+#+TITLE: Network Distances
 #+AUTHOR: David James
 #+DATE: 2020 Jan 23
 
 This project calculates the network traveling distance between a source and destination point on a map.
-It uses [[http://project-osrm.org/][OSRM]] software to generate the map and perform the calculations inside a Docker container.
+It uses Open Source Routing Machine ([[http://project-osrm.org/][OSRM)]] software to generate the map and perform the calculations inside a Docker container.
 
 Project was created by [[https://github.com/dj-2805/][David James]] for the Institute of Transportation Studies(ITS).
 
