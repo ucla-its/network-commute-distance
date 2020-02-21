@@ -117,8 +117,8 @@ def mp_findDrivingDistance(index):
     nowTime = dt.datetime.now().strftime("%H%M")
     now = dt.datetime.now().strftime("%Y%m%d-%H%M")
     print('index',index,'done processing', nowTime, wid)
-    miss = pd.DataFrame(missedBlocks).to_csv('results/missedBlocks'+ now + '-' + wid + '.csv')
-    hits = pd.DataFrame(commutes).to_csv('results/commutes'+ now + '-' + wid + '.csv')
+    miss = pd.DataFrame(missedBlocks).to_csv('results/missedBlocks'+ now + '-' + wid + '.csv',index=False)
+    hits = pd.DataFrame(commutes).to_csv('results/commutes'+ now + '-' + wid + '.csv',index=False)
 
 '''
 function mp_networkDriver
