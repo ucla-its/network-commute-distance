@@ -17,25 +17,7 @@ Project was created by [[https://github.com/dj-2805/][David James]] for the Inst
         | requests                   |
         | multiprocessing (included) |
         | logging (included)         |
-  3. The program is meant to run with the Docker container already running before the Python script executes
-  4. The driving function is described as such:
-     #+BEGIN_SRC python
-       '''
-       function mp_networkDriver
-       A function designed to work with multiprocessing
-       where it'll run the previous designed functions
-       NOTE: This will crash if the docker OSRM isn't running beforehand
-       @param:
-                    path - str, path to CSV file that will be prococcsed
-           startGeoIDCol - str, name of column that has the starting GEOIDs
-             endGeoIDCol - str, name of column that has the ending GEOIDs
-       @return: NONE
-       '''
-       def mp_networkDriver(path,startGeoIDCol,endGeoIDCol):
-     #+END_SRC
-     - NOTE ::
-       - The GEOIDS are meant to be FIPS Codes
-       - this is the function that would be called if importing the =.py= file into your own project
+  3. The program needs the Docker container running before the Python script executes
 **  Files
    - networkDistance.py :: This file calculates the source and destination pairs of data from a csv and outputs a csv of their distance in meters.
      - the source and destination pairs should be in a csv and given in FIPS code values
@@ -92,3 +74,33 @@ Project was created by [[https://github.com/dj-2805/][David James]] for the Inst
           # @param: source - {slon, slat}
           # @param: destination - {dlon,dlat}
         #+END_SRC
+  2. _Access the OSRM server_
+     1. The Python script, ~networkDistance.py~, has a function that will call the server and collect the responses
+        #+BEGIN_SRC python
+          # importing driver function from .py file
+          from networkDistance import mp_networkDriver
+
+          # strings needed for parameters of driver function
+          path = 'some/path/to/your/file.csv'
+          startGeoIDCol = 'name of start Geo ID'
+          endGeoIDCol = 'name of end Geo ID'
+
+          # the following is the function header for the input and how the data needs to be organized
+          # NOTE: even though your csv file may have extra columns
+          #       this program will only look at the two Geo ID columns given
+
+          # ################################################################################
+          # function mp_networkDriver
+          # A function designed to work with multiprocessing
+          # where it'll run the previous designed functions
+          # NOTE: This will crash if the docker OSRM isn't running beforehand
+          # @param:
+          #              path - str, path to CSV file that will be prococcsed
+          #     startGeoIDCol - str, name of column that has the starting GEOIDs
+          #       endGeoIDCol - str, name of column that has the ending GEOIDs
+          # @return: NONE
+          def mp_networkDriver(path,startGeoIDCol,endGeoIDCol):
+        #+END_SRC
+        - NOTE ::
+          - The GEOIDS are meant to be FIPS Codes
+          - this is the function that would be called if importing the =.py= file into your own project
