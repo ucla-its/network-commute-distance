@@ -1,12 +1,13 @@
 '''
 module networkDistance
-Author: David James, 20200116, davidabraham@ucla.edu
+Author: David James, 20200227, davidabraham@ucla.edu
 functions:
     - mp_openCounty
     - mp_findDrivingDistance
     - mp_networkDriver
 '''
 import requests
+import logging as lg
 import pandas as pd
 import numpy as np
 import multiprocessing as mp
@@ -43,7 +44,8 @@ def mp_openCounty(index):
                                 lat:np.float64,
                                 lon:np.float64})
         blockCounties[county] = df
-    print('done opening')
+
+    lg.info('Done opening')
     return blockCounties
 
 '''
@@ -114,9 +116,8 @@ def mp_findDrivingDistance(index):
             missedBlocks['Home Block'].append(homeBlock)
             missedBlocks['Work Block'].append(workBlock)
 
-    nowTime = dt.datetime.now().strftime("%H%M")
     now = dt.datetime.now().strftime("%Y%m%d-%H%M")
-    print('index',index,'done processing', nowTime, wid)
+    lg.info('index ' + str(index) + ' done processing: ' + str(wid))
     miss = pd.DataFrame(missedBlocks).to_csv('results/missedBlocks'+ now + '-' + wid + '.csv',index=False)
     hits = pd.DataFrame(commutes).to_csv('results/commutes'+ now + '-' + wid + '.csv',index=False)
 
@@ -132,6 +133,8 @@ NOTE: This will crash if the docker OSRM isn't running beforehand
 @return: NONE
 '''
 def mp_networkDriver(path,startGeoIDCol,endGeoIDCol):
+
+    lg.basicConfig(format='%(asctime)s %(message)s')
     # pulling commuter data from California csv
     area = pd.read_csv(path,
                        usecols=[startGeoIDCol,endGeoIDCol])
@@ -176,13 +179,10 @@ def mp_networkDriver(path,startGeoIDCol,endGeoIDCol):
     # creating threads to run
     pool = mp.Pool(cores)
 
-    nowTime = dt.datetime.now().strftime("%H%M")
-    print('Starting processing at', nowTime)
+    lg.info('Started processing')
 
     # processing distances
     pool.map(mp_findDrivingDistance,processCountiesIndex)
 
-    nowTime = dt.datetime.now().strftime("%H%M")
-    print('Finished processing at', nowTime)
-
+    lg.info('Finished processing')
     pool.close()
