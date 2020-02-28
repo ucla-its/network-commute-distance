@@ -156,14 +156,12 @@ def mp_networkDriver(path,startGeoIDCol,endGeoIDCol):
     # Note:
     # indexes are based on if running on 4 cores
     processOpenCounties = [(0,14),(14,28),(28,42),(42,58)]
+
     rows = cali.shape[0]
     group = rows//cores
-    a0 = 0
-    a1 = group * 1
-    a2 = group * 2
-    a3 = group * 3
-    a4 = rows
-    processCountiesIndex = [(a0,a1),(a1,a2),(a2,a3),(a3,a4)]
+    mpCount = [(group*i,group*(i+1)) if i < cores-1
+               else (group*i,rows)
+               for i in range(cores)]
 
     # creating threads to run
     pool = mp.Pool(cores)
@@ -182,7 +180,7 @@ def mp_networkDriver(path,startGeoIDCol,endGeoIDCol):
     lg.info('Started processing')
 
     # processing distances
-    pool.map(mp_findDrivingDistance,processCountiesIndex)
+    pool.map(mp_findDrivingDistance,mpCount)
 
     lg.info('Finished processing')
     pool.close()
