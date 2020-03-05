@@ -80,10 +80,11 @@ Project was created by [[https://github.com/dj-2805/][David James]] for the Inst
           # importing driver function from .py file
           from networkDistance import mp_networkDriver
 
-          # strings needed for parameters of driver function
+          # string of path to csv
           path = 'some/path/to/your/file.csv'
-          startGeoIDCol = 'name of start Geo ID'
-          endGeoIDCol = 'name of end Geo ID'
+          # strings of GEOID columns of csv
+          startGeoIDCol = 'name of start Geo ID column'
+          endGeoIDCol = 'name of end Geo ID column'
 
           # the following is the function header for the input and how the data needs to be organized
           # NOTE: even though your csv file may have extra columns
@@ -99,7 +100,7 @@ Project was created by [[https://github.com/dj-2805/][David James]] for the Inst
           #     startGeoIDCol - str, name of column that has the starting GEOIDs
           #       endGeoIDCol - str, name of column that has the ending GEOIDs
           # @return: NONE
-          def mp_networkDriver(path,startGeoIDCol,endGeoIDCol)
+          mp_networkDriver(path,startGeoIDCol,endGeoIDCol)
         #+END_SRC
         - NOTE ::
           - The GEOIDS are meant to be FIPS Codes
