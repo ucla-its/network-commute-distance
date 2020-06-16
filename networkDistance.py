@@ -1,178 +1,60 @@
 '''
 module networkDistance
-Author: David James, 20200227, davidabraham@ucla.edu
+Author: David James, 20200616, davidabraham@ucla.edu
 functions:
-    - mp_openCounty
     - mp_findDrivingDistance
     - mp_networkDriver
 '''
-import requests
 import logging as lg
+import multiprocessing as mp
+
+import requests
 import pandas as pd
 import numpy as np
-import multiprocessing as mp
 import datetime as dt
 
-# date/time stamp for saving files
-now = dt.datetime.now().strftime("%Y%m%d-%H%M")
-geo = 'GEOID10'
-lat = 'INTPTLAT10'
-lon = 'INTPTLON10'
+def mp_networkDriver(data, locs, name):
+    """Runs the OSRM software collecting the results from the server.
 
-'''
-function mp_openCounty
-A function designed to work with multiprocessing
-where each worker opens .csv file as a
-DataFrame to be allocated to a dictionary
-@param: tuple(
-        index[0] - int,starting index
-        index[1] - int,ending index)
-@return: dictionary(
-        key: str,county - name of county
-        value: DataFrame(
-            Series,GEOID10 - int,FIPS code of block
-            Series,INTPTLAT10 - float,Latitude of block
-            Series,INTPTLON10 - float,Longitude of block))
-'''
-def mp_openCounty(index):
-    blockCounties = {}
-    for i in range(index[0],index[1]):
-        county = countyWUni[i]
-        df = pd.read_csv('countiesCSV/'+county+'.csv',
-                         usecols=[geo,lat,lon],
-                         dtype={geo:np.int64,
-                                lat:np.float64,
-                                lon:np.float64})
-        blockCounties[county] = df
+    Parameters
+    ----------
+    data : DataFrame
+        A two column pandas.DataFrame of ints containing the geocodes of
+        the source and destination.
+    locs : Dictionary
+        A Dictionary with string keys connected to DataFrames. Each key is
+        a two digit state FIPS code and the DataFrame is a three column of
+        string FIPS geocodes along with its associated latitude and longitude
+        represented as floats
+    name : str
+        Name of the file being provided. This will be used for the output
+        files to show which result files are associated with.
 
-    lg.info('Done opening')
-    return blockCounties
+    Returns
+    -------
+    None
 
-'''
-function mp_findDrivingDistance
-A function designed to work with multiprocessing
-where each worker will calculate the driving distance
-between the home block and the work block
-@param: tuple(
-        int,index[0] - starting index
-        int,index[1] - ending index)
-@return: DataFrame(
-            Series, Home Block - int, FIPS code of home location
-            Series, Home Lat - float, latitude of home
-            Series, Home Lon - float, longitude of home
-            Series, Work Block - int, FIPS code of work location
-            Series, Work Lat - float, latitude of work
-            Series, Work Lon - float, longitude of work
-            Series, Distance [m] - float, commuting distance between
-                                        home and work locations)
-'''
-def mp_findDrivingDistance(index):
-    commutes = {'Home Block':[],'Home Lat':[],'Home Lon':[],
-                 'Work Block':[],'Work Lat':[],'Work Lon':[],
-                 'Distance [m]':[]}
-    missedBlocks = {'Home Block':[], 'Work Block':[]}
-    worker = mp.current_process()
-    wid = worker.name
-
-    for i in range(index[0],index[1]):
-        # getting the FIPS code for home and work blocks
-        homeBlock = home[i]
-        workBlock = work[i]
-
-        # check what county homeBlock is in
-        countyHomeBlock = str(homeBlock)[1:4]
-        countyWorkBlock = str(workBlock)[1:4]
-        # find county within dictionary of geoIDs,lats and lon points
-        homeCounty = blockCounties[countyHomeBlock]
-        workCounty = blockCounties[countyWorkBlock]
-
-        # get lat,lon from current county
-        homeLatLon = homeCounty[homeBlock == homeCounty[geo]].reset_index(drop=True)
-        workLatLon = workCounty[workBlock == workCounty[geo]].reset_index(drop=True)
-
-        # place retrieved lat,lon into url for server
-        # NOTE: server takes location in lon,lat format
-        try:
-            homeLat = homeLatLon[lat][0]
-            homeLon = homeLatLon[lon][0]
-            workLat = workLatLon[lat][0]
-            workLon = workLatLon[lon][0]
-            url = ('http://127.0.0.1:5000/route/v1/driving/{0},{1};{2},{3}?steps=true'
-                   .format(homeLon,
-                           homeLat,
-                           workLon,
-                           workLat))
-            response = requests.get(url).json()
-            distance = response['routes'][0]['distance']
-            # appending all necessary values
-            commutes['Home Block'].append(homeBlock)
-            commutes['Home Lat'].append(homeLat)
-            commutes['Home Lon'].append(homeLon)
-            commutes['Work Block'].append(workBlock)
-            commutes['Work Lat'].append(workLat)
-            commutes['Work Lon'].append(workLon)
-            commutes['Distance [m]'].append(distance)
-        except:
-            missedBlocks['Home Block'].append(homeBlock)
-            missedBlocks['Work Block'].append(workBlock)
-
-    now = dt.datetime.now().strftime("%Y%m%d-%H%M")
-    lg.info('index ' + str(index) + ' done processing: ' + str(wid))
-    miss = pd.DataFrame(missedBlocks).to_csv('results/missedBlocks'+ now + '-' + wid + '.csv',index=False)
-    hits = pd.DataFrame(commutes).to_csv('results/commutes'+ now + '-' + wid + '.csv',index=False)
-
-'''
-function mp_networkDriver
-A function designed to work with multiprocessing
-where it'll run the previous designed functions
-NOTE: This will crash if the docker OSRM isn't running beforehand
-@param:
-             path - str, path to CSV file that will be prococcsed
-    startGeoIDCol - str, name of column that has the starting GEOIDs
-      endGeoIDCol - str, name of column that has the ending GEOIDs
-@return: NONE
-'''
-def mp_networkDriver(path,startGeoIDCol,endGeoIDCol):
+    Notes
+    -----
+    The order of the source and destination in the data parameter does not
+    matter. However, the locs parameter must have its keys as 2-digit strings
+    with its value DataFrames ordered in
+    (GEOCODES(str), LAT(float), LON(float)). Otherwise, the OSRM will crash
+    or parse your calls incorrectly.
+    """
 
     lg.basicConfig(format='%(asctime)s %(message)s')
-    # pulling commuter data from California csv
-    area = pd.read_csv(path,
-                       usecols=[startGeoIDCol,endGeoIDCol])
-
-    # creating 2 Series of the startGeoIDCol and endGeoIDCol columns
-    work = area[startGeoIDCol]
-    home = area[endGeoIDCol]
-
-    # creating a Series of the unique county FIPS values within the startGeoIDCols column
-    countyWork = [str(x)[1:4] for x in work]
-    countyWork = pd.Series(countyWork)
-    countyWUni = countyWork.unique()
-    blockCounties = {}
 
     # getting the number of cpu cores on computer
     cores = mp.cpu_count()
 
-    # creating indexs to separate jobs for each thread
-    # Note:
-    # indexes are based on if running on 4 cores
-    processOpenCounties = [(0,14),(14,28),(28,42),(42,58)]
-
-    rows = cali.shape[0]
+    # when running tests change rows to a smaller fixed value
+    rows = data.shape[0]
     group = rows//cores
-    mpCount = [(group*i,group*(i+1)) if i < cores-1
-               else (group*i,rows)
+
+    mpCount = [(group*i, group*(i+1), data, locs, name) if i < cores-1
+               else (group*i, rows, data, locs, name)
                for i in range(cores)]
-
-    # creating threads to run
-    pool = mp.Pool(cores)
-
-    # opening necessary csv files to process
-    results = pool.map(mp_openCounty,processOpenCounties)
-    # combining the dictionaries from multiple workers into one dictionary
-    for d in results:
-        blockCounties.update(d)
-
-    pool.close()
 
     # creating threads to run
     pool = mp.Pool(cores)
@@ -184,3 +66,105 @@ def mp_networkDriver(path,startGeoIDCol,endGeoIDCol):
 
     lg.info('Finished processing')
     pool.close()
+
+def meters_to_miles(meters):
+    """Converts the input value of meters into miles.
+
+    """
+    miles = meters / 1609.344
+    return miles
+
+def mp_findDrivingDistance(index):
+    """Makes calls to the OSRM server to calculate the network distance.
+
+    Parameters
+    ----------
+    index : tuple
+        The starting and ending index of the data set.
+
+    Returns
+    -------
+    None
+
+    Notes
+    -----
+    At the end, this function will save two files of the computed geocode
+    pars and the missed values.
+    """
+    keys = ['Home Block', 'Home Lat', 'Home Lon',
+            'Work Block', 'Work Lat', 'Work Lon',
+            'Distance [mi]']
+    commutes = {keys[0]:[], keys[1]:[], keys[2]:[],
+                keys[3]:[], keys[4]:[], keys[5]:[],
+                keys[6]:[]}
+    missedBlocks = {keys[0]:[], keys[3]:[]}
+    worker = mp.current_process()
+    wid = worker.name
+
+    data = index[2]
+    datakeys = data.keys()
+    locs = index[3]
+    name = index[4]
+
+    for i in range(index[0],index[1]):
+        # getting the FIPS code for home and work blocks
+        work = data[datakeys[0]][i]
+        home = data[datakeys[1]][i]
+
+        # retrieving state FIPS code
+        wState = work[:2]
+        hState = home[:2]
+
+        # gathering column names from locs DataFrame
+        lockeys = locs[wState].keys()
+        geo = lockeys[0]
+        lat = lockeys[1]
+        lon = lockeys[2]
+
+        # get lat,lon from current county
+        wLatLon = locs[wState][work == locs[wState][geo]].reset_index(drop=True)
+        hLatLon = locs[hState][home == locs[hState][geo]].reset_index(drop=True)
+
+        # place retrieved lat,lon into url for server
+        # NOTE: server takes location in lon,lat format
+        try:
+            # parsing lat,lon values
+            homeLat = hLatLon[lat][0]
+            homeLon = hLatLon[lon][0]
+            workLat = wLatLon[lat][0]
+            workLon = wLatLon[lon][0]
+
+            # generating url to call server
+            url = ('http://127.0.0.1:5000/route/v1/driving/{0},{1};{2},{3}?steps=true'
+                   .format(homeLon,
+                           homeLat,
+                           workLon,
+                           workLat))
+
+            # calling server
+            response = requests.get(url).json()
+            # retrieving distance and converting to miles
+            distance = response['routes'][0]['distance']
+            distance = meters_to_miles(distance)
+
+            # appending all necessary values to dictionary
+            commutes[keys[0]].append(home)
+            commutes[keys[1]].append(homeLat)
+            commutes[keys[2]].append(homeLon)
+            commutes[keys[3]].append(work)
+            commutes[keys[4]].append(workLat)
+            commutes[keys[5]].append(workLon)
+            commutes[keys[6]].append(distance)
+        except:
+            # any missed values get appened to other dictionary
+            missedBlocks[keys[0]].append(home)
+            missedBlocks[keys[3]].append(work)
+
+    lg.info('index ' + str(index[0]) + ','+ str(index[1]) + ' done processing: ' + str(wid))
+
+    # time stamp for file name
+    now = dt.datetime.now().strftime("%Y%m%d-%H%M")
+    # saving files
+    title = now + '-' + name + '-' + wid + '.csv'
+    miss = pd.DataFrame(missedBlocks).to_csv('missed/' + title, index=False)
+    hits = pd.DataFrame(commutes).to_csv('results/'+ title, index=False)
